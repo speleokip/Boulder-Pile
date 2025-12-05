@@ -1,0 +1,185 @@
+import React, { useState, useRef } from 'react';
+import { Camera, Mail, RotateCcw, Send, Download } from 'lucide-react';
+
+export default function PhotoEmailApp() {
+  const [photo, setPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // Direct file input method (works best on mobile)
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPhoto(event.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const openCamera = () => {
+    fileInputRef.current.click();
+  };
+
+  const retakePhoto = () => {
+    setPhoto(null);
+    setPhotoFile(null);
+    fileInputRef.current.value = '';
+  };
+
+  const sendEmail = async () => {
+    if (!photo) return;
+
+    // Create a blob from the photo
+    const response = await fetch(photo);
+    const blob = await response.blob();
+    const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+    // Check if Web Share API is available (works great on mobile)
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Photo Submission',
+          text: 'Photo for submission'
+        });
+        alert('Photo shared! Please select your email app and send to kip.mandeno@avalonltd.co.nz');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Share failed:', err);
+          fallbackEmailMethod();
+        }
+      }
+    } else {
+      fallbackEmailMethod();
+    }
+  };
+
+  const fallbackEmailMethod = () => {
+    // Download the image
+    const link = document.createElement('a');
+    link.href = photo;
+    link.download = `photo-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Open email client
+    setTimeout(() => {
+      const subject = encodeURIComponent('Photo Submission');
+      const body = encodeURIComponent('Please find attached photo for submission.');
+      window.location.href = `mailto:kip.mandeno@avalonltd.co.nz?subject=${subject}&body=${body}`;
+    }, 500);
+
+    alert('Photo downloaded! Your email app will open - please attach the downloaded photo.');
+  };
+
+  const downloadPhoto = () => {
+    const link = document.createElement('a');
+    link.href = photo;
+    link.download = `photo-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+          <div className="flex items-center gap-3">
+            <Camera className="w-8 h-8" />
+            <div>
+              <h1 className="text-2xl font-bold">Photo Submission</h1>
+              <p className="text-sm text-blue-100 mt-1">Capture and send</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {!photo ? (
+            <div className="text-center py-12">
+              <div className="mb-6 flex justify-center">
+                <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Camera className="w-12 h-12 text-blue-600" />
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Take a Photo</h2>
+              <p className="text-gray-600 mb-6">Use your device camera to capture an image</p>
+              <button
+                onClick={openCamera}
+                className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-4 px-8 rounded-xl transition-colors inline-flex items-center gap-2 text-lg shadow-lg"
+              >
+                <Camera className="w-6 h-6" />
+                Open Camera
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Photo Preview */}
+              <div className="relative bg-gray-100 rounded-xl overflow-hidden shadow-inner">
+                <img src={photo} alt="Captured" className="w-full h-auto" />
+              </div>
+
+              {/* Email Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Mail className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-semibold text-gray-800">Send to:</p>
+                    <p className="text-blue-600">kip.mandeno@avalonltd.co.nz</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button
+                  onClick={sendEmail}
+                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-4 px-6 rounded-xl transition-colors inline-flex items-center justify-center gap-2 text-lg shadow-lg"
+                >
+                  <Send className="w-5 h-5" />
+                  Send via Email
+                </button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={downloadPhoto}
+                    className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-colors inline-flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={retakePhoto}
+                    className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-colors inline-flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Retake
+                  </button>
+                </div>
+              </div>
+
+              {/* Helper Text */}
+              <p className="text-xs text-gray-500 text-center pt-2">
+                Tap "Send via Email" to share the photo directly to your email app
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
